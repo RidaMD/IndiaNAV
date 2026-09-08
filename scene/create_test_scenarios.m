@@ -55,12 +55,12 @@ function scenario = buildScenario1(hasADToolbox)
         catch
         end
     end
-    % Native MATLAB Struct Fallback (MATLAB Online Basic Compatible)
+    % Native MATLAB Struct Fallback (Standardized Fields)
     scenario = struct('Name', 'Condition1', 'RoadWidth', 3.5, 'EgoSpeed', 8.33);
     scenario.Obstacles = [
-        struct('Type', 'POLE', 'X', 45.0, 'Y', 0.8, 'Size', [0.5, 0.5]);
-        struct('Type', 'POTHOLE', 'X', 80.0, 'Y', 0.1, 'Size', [1.2, 0.9]);
-        struct('Type', 'POLE', 'X', 130.0, 'Y', -0.7, 'Size', [0.5, 0.5])
+        struct('Type', 'POLE', 'X', 45.0, 'Y', 0.8, 'Vx', 0.0, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'POTHOLE', 'X', 80.0, 'Y', 0.1, 'Vx', 0.0, 'Vy', 0.0, 'Size', [1.2, 0.9], 'StartTime', 0.0);
+        struct('Type', 'POLE', 'X', 130.0, 'Y', -0.7, 'Vx', 0.0, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0)
     ];
 end
 
@@ -83,9 +83,9 @@ function scenario = buildScenario2(hasADToolbox)
     end
     scenario = struct('Name', 'Condition2', 'RoadWidth', 3.5, 'EgoSpeed', 8.33);
     scenario.Obstacles = [
-        struct('Type', 'PARKED_CAR', 'X', 50.0, 'Y', -1.0, 'Vx', 0.0, 'Vy', 0.0);
-        struct('Type', 'TRANSITIONING_CAR', 'X', 90.0, 'Y', 1.0, 'Vx', 0.0, 'Vy', 0.0, 'StartTime', 4.0);
-        struct('Type', 'MOVING_CAR', 'X', 160.0, 'Y', 0.0, 'Vx', -5.0, 'Vy', 0.0)
+        struct('Type', 'PARKED_CAR', 'X', 50.0, 'Y', -1.0, 'Vx', 0.0, 'Vy', 0.0, 'Size', [4.2, 1.7], 'StartTime', 0.0);
+        struct('Type', 'TRANSITIONING_CAR', 'X', 90.0, 'Y', 1.0, 'Vx', 0.0, 'Vy', 0.0, 'Size', [4.0, 1.7], 'StartTime', 4.0);
+        struct('Type', 'MOVING_CAR', 'X', 160.0, 'Y', 0.0, 'Vx', -5.0, 'Vy', 0.0, 'Size', [4.0, 1.7], 'StartTime', 0.0)
     ];
 end
 
@@ -107,8 +107,8 @@ function scenario = buildScenario3(hasADToolbox)
     end
     scenario = struct('Name', 'Condition3', 'RoadWidth', 3.5, 'EgoSpeed', 8.33);
     scenario.Obstacles = [
-        struct('Type', 'PED_WALKING_ALONG', 'X', 40.0, 'Y', 1.5, 'Vx', 1.2, 'Vy', 0.0);
-        struct('Type', 'PED_JAYWALKING', 'X', 90.0, 'Y', -2.0, 'Vx', 0.0, 'Vy', 1.4)
+        struct('Type', 'PED_WALKING_ALONG', 'X', 40.0, 'Y', 1.5, 'Vx', 1.2, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_JAYWALKING', 'X', 90.0, 'Y', -2.0, 'Vx', 0.0, 'Vy', 1.4, 'Size', [0.5, 0.5], 'StartTime', 0.0)
     ];
 end
 
@@ -126,14 +126,14 @@ function scenario = buildScenario4(hasADToolbox)
     end
     scenario = struct('Name', 'Condition4', 'RoadWidth', 3.5, 'EgoSpeed', 6.0);
     scenario.Obstacles = [
-        struct('Type', 'PED_WALKING_ALONG', 'X', 30.0, 'Y', 1.4, 'Vx', 1.2, 'Vy', 0.0);
-        struct('Type', 'PED_WALKING_ALONG', 'X', 45.0, 'Y', -1.5, 'Vx', 1.1, 'Vy', 0.0);
-        struct('Type', 'PED_JAYWALKING', 'X', 60.0, 'Y', -2.0, 'Vx', 0.0, 'Vy', 1.3);
-        struct('Type', 'PED_WALKING_ALONG', 'X', 75.0, 'Y', 1.6, 'Vx', 1.0, 'Vy', 0.0);
-        struct('Type', 'PED_JAYWALKING', 'X', 90.0, 'Y', 2.2, 'Vx', 0.0, 'Vy', -1.4);
-        struct('Type', 'PED_WALKING_ALONG', 'X', 110.0, 'Y', -1.4, 'Vx', 1.2, 'Vy', 0.0);
-        struct('Type', 'PED_JAYWALKING', 'X', 125.0, 'Y', -1.8, 'Vx', 0.0, 'Vy', 1.2);
-        struct('Type', 'PED_WALKING_ALONG', 'X', 140.0, 'Y', 1.5, 'Vx', 1.0, 'Vy', 0.0)
+        struct('Type', 'PED_WALKING_ALONG', 'X', 30.0, 'Y', 1.4, 'Vx', 1.2, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_WALKING_ALONG', 'X', 45.0, 'Y', -1.5, 'Vx', 1.1, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_JAYWALKING', 'X', 60.0, 'Y', -2.0, 'Vx', 0.0, 'Vy', 1.3, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_WALKING_ALONG', 'X', 75.0, 'Y', 1.6, 'Vx', 1.0, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_JAYWALKING', 'X', 90.0, 'Y', 2.2, 'Vx', 0.0, 'Vy', -1.4, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_WALKING_ALONG', 'X', 110.0, 'Y', -1.4, 'Vx', 1.2, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_JAYWALKING', 'X', 125.0, 'Y', -1.8, 'Vx', 0.0, 'Vy', 1.2, 'Size', [0.5, 0.5], 'StartTime', 0.0);
+        struct('Type', 'PED_WALKING_ALONG', 'X', 140.0, 'Y', 1.5, 'Vx', 1.0, 'Vy', 0.0, 'Size', [0.5, 0.5], 'StartTime', 0.0)
     ];
 end
 
@@ -141,6 +141,6 @@ end
 function scenario = buildScenario5(hasADToolbox)
     scenario = struct('Name', 'Condition5', 'RoadWidth', 4.0, 'EgoSpeed', 7.0);
     scenario.Obstacles = [
-        struct('Type', 'TRACTOR', 'X', 100.0, 'Y', -0.9, 'Vx', 0.0, 'Vy', 0.0)
+        struct('Type', 'TRACTOR', 'X', 100.0, 'Y', -0.9, 'Vx', 0.0, 'Vy', 0.0, 'Size', [3.8, 1.6], 'StartTime', 0.0)
     ];
 end
