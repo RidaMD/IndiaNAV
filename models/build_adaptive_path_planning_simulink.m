@@ -54,7 +54,7 @@ function modelName = build_adaptive_path_planning_simulink()
     sub1 = [modelName '/Subsystem 1: Sensor Inputs'];
     Simulink.SubSystem.deleteContents(sub1);
     add_block('simulink/Sources/Constant', [sub1 '/Scenario_GroundTruth'], ...
-        'Value', 'struct(''EgoPos'', [0 0 0], ''ActorList'', zeros(10, 6))', 'Position', [30, 40, 150, 80]);
+        'Value', 'zeros(10, 6)', 'Position', [30, 40, 150, 80]);
     add_block('simulink/Ports & Subsystems/Out1', [sub1 '/SensorData_Out'], 'Position', [220, 50, 250, 70]);
     add_line(sub1, 'Scenario_GroundTruth/1', 'SensorData_Out/1');
 
