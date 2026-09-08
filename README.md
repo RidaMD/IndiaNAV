@@ -163,4 +163,4 @@ d:\rida\Projects\IndiaNAV\
 
 Designed for **Smart India Hackathon (SIH) 2026** — Problem Statement: *Adaptive Path Planning and Collision Avoidance for Autonomous Vehicles on Unstructured Roads.*
 
-*Engineered by Team IndiaNAV (2026).*
+*Engineered by Team Force Push Masters (2026).*
