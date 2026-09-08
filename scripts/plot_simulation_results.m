@@ -8,10 +8,27 @@
 
 clearvars; clc;
 
-if ~exist('simulation_results.mat', 'file')
+scriptDir = fileparts(mfilename('fullpath'));
+rootDir   = fullfile(scriptDir, '..');
+addpath(rootDir);
+addpath(scriptDir);
+
+matFile = fullfile(scriptDir, 'simulation_results.mat');
+if ~exist(matFile, 'file') && exist('simulation_results.mat', 'file')
+    matFile = 'simulation_results.mat';
+end
+
+if ~exist(matFile, 'file')
     run_all_scenarios;
+    if exist('simulation_results.mat', 'file')
+        matFile = 'simulation_results.mat';
+    end
+end
+
+if exist(matFile, 'file')
+    load(matFile);
 else
-    load('simulation_results.mat');
+    error('simulation_results.mat not found. Please run run_all_scenarios first.');
 end
 
 fprintf('====================================================\n');
@@ -70,7 +87,7 @@ for i = 1:length(scenarioNames)
     xlabel('Time (s)'); ylabel('Active State');
     grid on;
     
-    plotFilename = fullfile('scripts', sprintf('plot_%s.png', sName));
+    plotFilename = fullfile(scriptDir, sprintf('plot_%s.png', sName));
     saveas(fig, plotFilename);
     close(fig);
     fprintf('✓ Generated plot artifact: %s\n', plotFilename);
