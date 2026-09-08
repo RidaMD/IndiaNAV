@@ -3,6 +3,13 @@
 % all 8 required subsystems with complete signal routing and block configs.
 
 function modelName = build_adaptive_path_planning_simulink()
+    % Automatically add project root directory to MATLAB path
+    thisDir = fileparts(mfilename('fullpath'));
+    rootDir = fullfile(thisDir, '..');
+    addpath(rootDir);
+    addpath(fullfile(rootDir, 'scene'));
+    addpath(fullfile(rootDir, 'scripts'));
+    
     setup_simulation; % Load all parameter structs
     
     modelName = 'adaptive_path_planning_model';
