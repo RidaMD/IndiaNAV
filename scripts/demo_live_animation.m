@@ -64,7 +64,7 @@ function demo_live_animation(scenarioNum)
         if strcmp(obs.Type, 'POLE')
             rectangle(ax1, 'Position', [obs.X-0.25, obs.Y-0.25, 0.5, 0.5], 'Curvature', [1 1], ...
                 'FaceColor', [0.4 0.4 0.4], 'EdgeColor', 'k', 'LineWidth', 1.5);
-            text(ax1, obs.X, obs.Y+0.6, 'POLE', 'FontWeight', 'bold', 'FontSize', 8, 'Color', 'dargray');
+            text(ax1, obs.X, obs.Y+0.6, 'POLE', 'FontWeight', 'bold', 'FontSize', 8, 'Color', [0.3 0.3 0.3]);
         elseif strcmp(obs.Type, 'POTHOLE')
             rectangle(ax1, 'Position', [obs.X-0.6, obs.Y-0.45, 1.2, 0.9], 'Curvature', [0.5 0.5], ...
                 'FaceColor', [0.9 0.4 0.8 0.5], 'EdgeColor', 'm', 'LineWidth', 2.0);
