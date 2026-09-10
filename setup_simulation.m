@@ -3,7 +3,6 @@
 % perception thresholds, safety monitor limits, Tri-Dataset AI domain priors,
 % multi-hazard spatio-temporal risk engine (DCPA/TCPA), and environment adapters.
 
-clearvars -except egoParams sensorParams trackParams intentParams plannerParams controlParams safetyParams envConfig perceptionParams;
 clc;
 
 fprintf('====================================================\n');

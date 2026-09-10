@@ -4,17 +4,18 @@
 % Features live Telemetry HUD (Speed, Active Stateflow State, Clearance, TTC).
 
 function demo_live_animation(scenarioNum)
-    if nargin < 1
+    if nargin < 1 || isempty(scenarioNum)
         scenarioNum = 1; % Default Condition 1 (Poles & Potholes)
     end
     
+    selNum = scenarioNum; % Preserve argument locally
     setup_simulation;
     scenarios = create_test_scenarios();
     sNames = fieldnames(scenarios);
-    if scenarioNum < 1 || scenarioNum > length(sNames)
-        scenarioNum = 1;
+    if selNum < 1 || selNum > length(sNames)
+        selNum = 1;
     end
-    sName = sNames{scenarioNum};
+    sName = sNames{selNum};
     scenObj = scenarios.(sName);
     
     fprintf('====================================================\n');
