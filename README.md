@@ -14,54 +14,103 @@
 Driving on Indian urban and semi-urban streets presents unique challenges: absence of painted lane lines, narrow single-lane corridors (3.5 m width), static obstructions (utility poles), surface defects (potholes), parked vehicles narrowing drivable paths, dynamic vehicles, and unpredictable pedestrian jaywalking.
 
 This prototype provides an end-to-end **closed-loop Simulink architecture** featuring:
-- **Free-Space Perception**: Deep neural network free-space segmentation (imported via ONNX) for drivable surface extraction without relying on lane markings.
+- **Tri-Dataset AI Perception**: Deep neural network free-space segmentation and multi-class object detection fine-tuned on domain priors from **IDD** (India Driving Dataset), **RAD** (Road Anomaly Detection), and **BDD100K**.
 - **Track History & Vehicle Classification**: Discriminates parked vs. moving vehicles using rolling window velocity tracking ($\bar{v} < 0.3\text{ m/s}$), triggering immediate replanning upon static-to-moving transitions.
 - **Rule-Based Pedestrian Intent Prediction**: Heading vector ($\Delta \theta \ge 30^\circ$) and lateral velocity evaluation relative to road edge to classify parallel walking vs. jaywalking crossing.
-- **Dynamic Corridor Path Planner**: State-space planner generating smooth $C^2$ continuous trajectories respecting narrow corridor constraints.
+- **Dynamic Corridor Path Planner**: State-space planner generating smooth $C^2$ continuous trajectories respecting narrow corridor constraints ($3.5\text{ m}$).
 - **Behavioral Decision Logic**: Stateflow chart handling complex discrete states (`NORMAL_DRIVE`, `SLOW_FOR_POTHOLE`, `STEER_AROUND_POLE`, `YIELD_FOR_PEDESTRIAN`, `STOP_AND_WAIT`).
-- **Parallel Safety Risk Engine**: High-frequency Time-to-Collision (TTC) and minimum clearance monitor providing soft replan triggers and hard emergency-stop overrides bypassing decision logic ($TTC < 1.2\text{ s} \implies a = -6.0\text{ m/s}^2$).
-- **Live Interactive Judge Demo**: Built-in 2D Bird's-Eye View real-time animation with live Telemetry HUD overlays.
+- **Multi-Hazard Spatio-Temporal Risk Engine**: High-frequency Time-to-Collision (TTC), Distance at Closest Point of Approach (DCPA), Time at Closest Point of Approach (TCPA), and expanding $2$-Sigma Kalman uncertainty ellipses providing soft replan triggers and hard emergency-stop overrides ($TTC < 1.2\text{ s} \implies a = -6.0\text{ m/s}^2$).
+- **Live Interactive Judge Demo**: Built-in 2D Bird's-Eye View real-time animation with live Telemetry HUD overlays (`demo_live_animation.m`).
 
 ---
 
-## 🏗️ AdaptDrive Architecture Mapping
+## 🏗️ 8-Stage Subsystem Architecture & Signal Flow
 
 ```
- +---------------------------------------------------------------------------------------+
- |                      20 Hz PERCEPTION & PLANNING (dt = 0.05 s)                        |
- |                                                                                       |
- |  Dynamic Ego State [x, y, yaw, v]^T                                                   |
- |         |                                                                             |
- |         v                                                                             |
- |  [Sensor Suite] ----------> Front RGB Camera + 3D LiDAR + Long-Range Radar            |
- |         |                                                                             |
- |         v                                                                             |
- |  [Perception & Fusion] ---> Spatial Gating + ONNX Free-Space Road Segmentation        |
- |         |                                                                             |
- |         v                                                                             |
- |  [Tracking & Prediction] -> 4D Track State (x, y, vx, vy) + 3.0s Horizon (Parked/Ped) |
- |         |                                                                             |
- |         v                                                                             |
- |  [Risk Engine] -----------> TTC + Min Clearance + Parallel Hard Emergency Override    |
- |         |                                                                             |
- |         v                                                                             |
- |  [Decision FSM] ----------> NORMAL_DRIVE | SLOW_POTHOLE | STEER_POLE | YIELD_PED | STOP |
- |         |                                                                             |
- |         v                                                                             |
- |  [Path Planner] ----------> C^2 Continuous Curvature S-Curves with Kinematic Bounds   |
- +-------------------------------------------+-------------------------------------------+
++---------------------------------------------------------------------------------------------------------+
+|                                  PARALLEL SAFETY MONITOR (Subsystem 8)                                  |
+|                 - Multi-Hazard Risk Engine (TTC, DCPA, TCPA, 2-Sigma Uncertainty Bounds)                |
++---------------------------------------------------+-----------------------------------------------------+
+                                                    | (Hard Emergency Stop Override / Replan Signals)
+                                                    v
+ [1] Sensor Inputs  ---> [2] Perception ---> [3] Multi-Object  ---> [4] Intent       ---> [5] Dynamic
+ (Camera / LiDAR)        (ONNX Free-space       Tracker                Prediction           Corridor Path
+                          IDD+RAD+BDD100K)     (Parked/Moving)        (Walk/Jaywalk)       Planner
+                                                                                                |
+                                                                                                v
+ [7] Vehicle Controller <------------------------------------------------------------------ [6] Decision Logic
+     (Stanley + Bicycle Model)                                                              (Stateflow Machine)
 ```
 
-| AdaptDrive Block | IndiaNAV Subsystem Implementation | Key Logic / Formula |
+| Subsystem Name | Key Inputs & Outputs | Core Functionality & Mathematical Logic |
 |---|---|---|
-| **20 Hz Rate ($dt = 0.05\text{ s}$)** | `sensorParams.SampleTime = 0.05`<br>Fixed-step solver `ode4` at `0.05s` | Synchronized 20 Hz execution |
-| **Dynamic Ego State $[x, y, \psi, v]^T$** | `egoState = [X, Y, Psi, V]` | Subsystems 7 & 8 |
-| **Sensor Suite** | Camera FOV $60^\circ$ ($50\text{ m}$) + 3D LiDAR 1024 pts ($80\text{ m}$) | Subsystem 1 (`Sensor Inputs`) |
-| **Perception & Fusion** | DeepLabV3+ ONNX free-space road surface segmentation + spatial gating | Subsystem 2 (`Perception (ONNX Free-space)`) |
-| **Tracking & Prediction** | 4D track state $[x,y,v_x,v_y]$, rolling speed $\bar{v} < 0.3\text{ m/s}$, ped heading $\Delta \theta \ge 30^\circ$ | Subsystem 3 (`Tracker`) & Subsystem 4 (`Intent`) |
-| **Risk Engine** | Time-to-Collision $TTC = \frac{d_{rel}}{v_{rel}}$, clearance $d_{min} \ge 0.8\text{ m}$, Hard Brake ($TTC < 1.2\text{ s}$) | Subsystem 8 (`Parallel Safety Monitor`) |
-| **Decision FSM** | Stateflow chart: `NORMAL_DRIVE`, `SLOW_FOR_POTHOLE`, `STEER_AROUND_POLE`, `YIELD_FOR_PEDESTRIAN`, `STOP_AND_WAIT` | Subsystem 6 (`Stateflow Decision Logic`) |
-| **Path Planner** | Continuous reference trajectory $[x, y, \psi, v, \kappa]$ with curvature variance $\text{Var}(\kappa) < 0.05\text{ m}^{-2}$ | Subsystem 5 (`Dynamic Corridor Path Planner`) |
+| **1. Sensor Inputs** | **Out**: `SensorData_Out` (`[10 x 6]`) | Simulates multi-modal sensor suite (Front RGB Camera FOV 60°/50m, 3D LiDAR 1024 pts/80m, Long-Range Radar). |
+| **2. Perception (ONNX Free-space)** | **In**: `SensorData_In`<br>**Out**: `DrivableBoundary_Out` (`[100 x 2]`), `Detections_Out` (`[10 x 6]`) | Executes DeepLabV3+ ONNX network (`road_segmentation_net.onnx`) with domain priors from **IDD**, **RAD**, and **BDD100K**. Extracts free-space drivable road polygon ($W_{drivable} = 3.5\text{m}$) without lane lines. |
+| **3. Multi-Object Tracker** | **In**: `Detections_In`<br>**Out**: `TrackList_Out` (`[10 x 7]`), `ReplanTrigger_Out` (`boolean`) | Maintains 4D track history ($[x,y,v_x,v_y]$). Evaluates rolling speed over 10 frames to classify vehicles as `PARKED_CAR` ($\bar{v} < 0.3\text{m/s}$) vs `MOVING_CAR` ($\bar{v} \ge 0.3\text{m/s}$). Fires instantaneous `ReplanTrigger` when a parked car pulls out. |
+| **4. Intent Prediction** | **In**: `TrackList_In`<br>**Out**: `IntentList_Out` (`[10 x 3]`) | Calculates pedestrian heading deviation $\Delta \theta = \vert\theta_{ped} - \theta_{road}\vert$ and lateral velocity $v_{lat}$. $\Delta \theta \ge 30^\circ \implies$ `JAYWALKING` (yield required); else `WALKING_ALONG` (maintain speed). |
+| **5. Dynamic Corridor Path Planner** | **In**: `Boundary_In`, `TrackList_In`, `ReplanTrigger_In`<br>**Out**: `Trajectory_Out` (`[50 x 5]`), `PathBlocked_Out` (`boolean`) | State-space dynamic corridor planner generating $C^2$ continuous curvature-constrained trajectories respecting narrow Indian street bounds ($3.5\text{m}$). Emits `PathBlocked = true` if clearance width $< 2.6\text{m}$ (bottleneck). |
+| **6. Stateflow Decision Logic** | **In**: `IntentList_In`, `PathBlocked_In`, `SafetyReplan_In`<br>**Out**: `DriveState_Out`, `TargetSpeed_Out` | Discrete Stateflow behavioral state machine:<br>• State 1: `NORMAL_DRIVE` (30 km/h)<br>• State 2: `SLOW_FOR_POTHOLE` (10 km/h, no swerving)<br>• State 3: `STEER_AROUND_POLE` (Lateral steer maneuver)<br>• State 4: `YIELD_FOR_PEDESTRIAN` (Deceleration/Stop)<br>• State 5: `STOP_AND_WAIT` (Bottleneck fallback) |
+| **7. Vehicle Dynamics & Controller** | **In**: `Trajectory_In`, `TargetSpeed_In`, `EmergencyStop_In`<br>**Out**: `EgoState_Out` (`[1 x 4]`), `SteerCmd_Out` | Non-linear kinematic bicycle vehicle model ($L=2.8\text{m}$) tracked using a Stanley lateral steering controller and longitudinal PID velocity controller. |
+| **8. Parallel Safety Monitor** | **In**: `EgoState_In`, `TrackList_In`<br>**Out**: `SoftReplan_Out`, `EmergencyStop_Out`, `MinClearance_Out`, `MinTTC_Out` | Parallel Multi-Hazard Risk Engine calculating $\text{TTC}$, $\text{DCPA}$, $\text{TCPA}$, and expanding $2$-Sigma Kalman uncertainty ellipses ($\mathbf{\Sigma}_{2\sigma}$). Critical risk ($\text{TTC} < 1.2\text{s}$) fires a **Hard Emergency Brake Override** ($a = -6.0\text{m/s}^2$) directly to Subsystem 7, bypassing Planner & Stateflow. |
+
+---
+
+## 🔄 End-to-End Flow of Execution
+
+```
++---------------------------------------------------------------------------------------------------+
+| STEP 1: Workspace & Parameter Setup (setup_simulation.m)                                          |
+|         -> Loads Ego Geometry (L=2.8m, W=1.8m), Sensor Suite, Tri-Dataset Priors, Tracker Params,  |
+|            Intent Thresholds, Stanley Gains, Multi-Hazard DCPA/TCPA Risk Limits & Env Plugin      |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 2: Perception Neural Network Training & ONNX Export (train_tri_dataset_perception.py)        |
+|         -> PyTorch multi-task training on IDD + RAD + BDD100K dataset domain priors               |
+|         -> Exports trained network weights directly to models/road_segmentation_net.onnx           |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 3: Programmatic Simulink Model Generator (build_adaptive_path_planning_simulink.m)            |
+|         -> Builds adaptive_path_planning_model.slx assembling all 8 labeled subsystems             |
+|         -> Configures MATLAB Coder explicit pre-allocations & Stateflow decision chart            |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 4: Automated Scenario Builder (scene/create_test_scenarios.m & create_roadrunner_scene.m)   |
+|         -> Instantiates Conditions 1-5 with drivingScenario & MATLAB scenario struct fallbacks    |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 5: Closed-Loop Simulation Execution (scripts/run_all_scenarios.m)                            |
+|         -> Runs 20 Hz fixed-step simulation across Conditions 1-5                                 |
+|         -> Tracks Ego dynamics, obstacle motion, TTC, DCPA/TCPA, clearance & Stateflow states     |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 6: Metrics Computation & CSV Logging (scripts/export_metrics.m)                              |
+|         -> Computes Latency, Path Smoothness Var(kappa), Min Clearance, Collisions (0), Accuracy  |
+|         -> Exports summary table to simulation_metrics.csv                                        |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 7: Visual Plot Generation & Report Verification (scripts/plot_simulation_results.m)          |
+|         -> Renders publication 6-panel figure plots with capped 10s TTC & stairs state plots       |
+|         -> Saves plot_Condition1.png through plot_Condition5.png                                  |
++---------------------------------------------------+-----------------------------------------------+
+                                                    |
+                                                    v
++---------------------------------------------------------------------------------------------------+
+| STEP 8: SIH 2026 Live Presentation & Judge Demo (scripts/demo_live_animation.m)                   |
+|         -> Interactive real-time Bird's-Eye View 2D animation with live Telemetry HUD overlays    |
++---------------------------------------------------------------------------------------------------+
+```
 
 ---
 
@@ -85,7 +134,7 @@ demo_live_animation(3)
 
 ## 📋 Requirement Coverage Checklist
 
-- [x] **1. Free-space road segmentation**: Drivable surface extracted without lane markings.
+- [x] **1. Free-space road segmentation**: Drivable surface extracted without lane markings (IDD priors).
 - [x] **2. Static Pole Avoidance**: Classified as vertical static obstacle; full steer-around executed.
 - [x] **3. Pothole Handling**: Classified as surface defect; slow-down-only ($v \le 10\text{ km/h}$) enforced without swerving.
 - [x] **4. Dynamic Corridor Geometry**: Narrow 3.5 m road width evaluated continuously.
@@ -95,7 +144,7 @@ demo_live_animation(3)
 - [x] **8. Pedestrian Walking Parallel**: $\Delta \theta < 30^\circ \rightarrow$ `WALKING_ALONG` (no yield, maintain velocity).
 - [x] **9. Pedestrian Jaywalking**: $\Delta \theta \ge 30^\circ \rightarrow$ `JAYWALKING` (triggers yield/deceleration).
 - [x] **10. Crowded Market Density**: Scenario Condition 4 stress-tests intent prediction with $N=8+$ pedestrians.
-- [x] **11. TTC Replan Trigger**: Soft replan request emitted when $TTC < 3.0\text{ s}$.
+- [x] **11. Multi-Hazard Risk Engine**: Combines TTC, DCPA, TCPA, and expanding $2$-Sigma uncertainty ellipses.
 - [x] **12. Minimum Clearance Trigger**: Soft replan request emitted when $d_{min} < 0.8\text{ m}$.
 - [x] **13. Critical TTC Hard Emergency Stop**: Hard brake override ($a = -6.0\text{ m/s}^2$) bypasses decision logic when $TTC < 1.2\text{ s}$.
 - [x] **14. Narrow Corridor Fallback**: Corridor bottleneck ($W_{clearance} < W_{vehicle} + 0.4\text{ m}$) triggers `STOP_AND_WAIT` fallback.
@@ -109,7 +158,7 @@ demo_live_animation(3)
 - Simulink
 - Deep Learning Toolbox (for ONNX import)
 
-### 2. Run Setup & Scenario Execution
+### 2. Run End-to-End Simulation Pipeline
 
 ```matlab
 % Step 1: Open MATLAB and set workspace root
@@ -160,7 +209,8 @@ d:\rida\Projects\IndiaNAV\
 ├── models/
 │   ├── build_adaptive_path_planning_simulink.m # Programmatic .slx model generator (8 Subsystems)
 │   ├── perception_onnx_exporter.py    # PyTorch exporter for ONNX perception network
-│   └── road_segmentation_net.onnx      # Generated ONNX model file
+│   ├── train_tri_dataset_perception.py# PyTorch training pipeline for IDD, RAD, BDD100K
+│   └── road_segmentation_net.onnx      # Trained ONNX perception network model
 ├── scripts/
 │   ├── demo_live_animation.m          # Live interactive judge demonstration tool
 │   ├── run_all_scenarios.m            # Batch runner across all test conditions
