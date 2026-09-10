@@ -1,8 +1,9 @@
 %% Setup Simulation Master Script - IndiaNAV (SIH 2026)
 % Initializes workspace parameters, vehicle geometry, controller gains, 
-% perception thresholds, safety monitor limits, and environment adapters.
+% perception thresholds, safety monitor limits, Tri-Dataset AI domain priors,
+% multi-hazard spatio-temporal risk engine (DCPA/TCPA), and environment adapters.
 
-clearvars -except egoParams sensorParams trackParams intentParams plannerParams controlParams safetyParams envConfig;
+clearvars -except egoParams sensorParams trackParams intentParams plannerParams controlParams safetyParams envConfig perceptionParams;
 clc;
 
 fprintf('====================================================\n');
@@ -34,12 +35,19 @@ sensorParams.LidarPoints     = 1024; % Simulated points per scan frame
 sensorParams.PositionNoise   = 0.05; % Gaussian noise std on position (meters)
 sensorParams.VelocityNoise   = 0.10; % Gaussian noise std on velocity (m/s)
 
-%% 3. Perception & ONNX Model Parameters
+%% 3. Tri-Dataset AI Perception (IDD + RAD + BDD100K Domain Priors)
 perceptionParams = struct();
 perceptionParams.OnnxModelPath = fullfile('models', 'road_segmentation_net.onnx');
 perceptionParams.InputImageSize = [256, 256, 3];
 perceptionParams.ConfidenceThresh = 0.50; % Minimum detection confidence
 perceptionParams.Classes = {'FreeSpace', 'Pole', 'Pothole', 'ParkedCar', 'MovingCar', 'Pedestrian'};
+
+% Domain Prior Integration Metadata
+perceptionParams.TriDatasetPriors = struct(...
+    'IDD',     'India Driving Dataset: Non-lane drivable corridors, auto-rickshaws, cattle, pedestrians', ...
+    'RAD',     'Road Anomaly Detection: Semantic pothole segmentation, unpaved edge degradation', ...
+    'BDD100K', 'Berkeley DeepDrive: Multi-weather conditions & temporal multi-object tracking baselines'...
+);
 
 %% 4. Multi-Object Tracker & Parked/Moving Classifier
 trackParams = struct();
@@ -74,12 +82,20 @@ controlParams.SpeedPID_Kp     = 2.00; % Longitudinal speed controller Kp
 controlParams.SpeedPID_Ki     = 0.10; % Longitudinal speed controller Ki
 controlParams.SpeedPID_Kd     = 0.05; % Longitudinal speed controller Kd
 
-%% 8. Parallel Safety Monitor & Emergency Override
+%% 8. Multi-Hazard Spatio-Temporal Risk Engine (TTC + DCPA / TCPA + 2-Sigma Uncertainty)
 safetyParams = struct();
 safetyParams.SoftTTC_Thresh      = 3.00; % Soft TTC threshold triggering dynamic replan (seconds)
 safetyParams.CriticalTTC_Thresh  = 1.20; % Critical TTC threshold triggering Hard Emergency Stop (seconds)
 safetyParams.MinClearanceThresh  = 0.80; % Minimum allowable distance to any obstacle (meters)
 safetyParams.EmergencyBrakeAccel = egoParams.MaxDecel; % -6.0 m/s^2 hard braking
+
+% Multi-Hazard DCPA / TCPA + 2-Sigma Uncertainty Parameters
+safetyParams.EnableDCPA_TCPA         = true;
+safetyParams.SigmaUncertaintyFactor = 2.00;  % 2-Sigma confidence ellipse multiplier
+safetyParams.DCPA_SoftThresh         = 0.80;  % Soft DCPA clearance threshold (meters)
+safetyParams.TCPA_SoftThresh         = 2.50;  % Soft TCPA time horizon (seconds)
+safetyParams.DCPA_CriticalThresh     = 0.40;  % Critical DCPA threshold (meters)
+safetyParams.TCPA_CriticalThresh     = 1.20;  % Critical TCPA horizon (seconds)
 
 %% 9. Environment Plugin Architecture Configuration
 envConfig = struct();
@@ -89,9 +105,9 @@ envConfig.SurfaceType           = 'Asphalt_Unmarked';
 envConfig.FrictionCoefficient   = 0.80; % Road adhesion mu
 
 fprintf('✓ Ego Params: Wheelbase = %.1fm, Width = %.1fm\n', egoParams.Wheelbase, egoParams.Width);
-fprintf('✓ Perception: ONNX Model = %s\n', perceptionParams.OnnxModelPath);
-fprintf('✓ Safety Monitor: Soft TTC = %.1fs, Critical TTC = %.1fs, Emergency Decel = %.1fm/s^2\n', ...
-    safetyParams.SoftTTC_Thresh, safetyParams.CriticalTTC_Thresh, safetyParams.EmergencyBrakeAccel);
+fprintf('✓ Perception: ONNX Model = %s (IDD + RAD + BDD100K Tri-Dataset Priors)\n', perceptionParams.OnnxModelPath);
+fprintf('✓ Multi-Hazard Risk Engine: Soft TTC = %.1fs, DCPA = %.2fm, TCPA = %.1fs, 2-Sigma Ellipse Active\n', ...
+    safetyParams.SoftTTC_Thresh, safetyParams.DCPA_SoftThresh, safetyParams.TCPA_SoftThresh);
 fprintf('✓ Environment Plugin Active: %s\n', envConfig.ActiveEnvironment);
 fprintf('====================================================\n');
 fprintf('Setup complete. Ready to generate scenes, build model, and run simulation.\n\n');
