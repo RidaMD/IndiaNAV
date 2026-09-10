@@ -1,6 +1,6 @@
 %% Run All Scenarios Batch Script - IndiaNAV (SIH 2026)
 % Executes closed-loop simulation across all 5 scenario conditions:
-% Condition 1: Static Poles (steer-around) + Potholes (slow-down)
+% Condition 1: Static Poles (steer-around) + Depth-Aware Potholes (Shallow/Deep/Unknown)
 % Condition 2: Parked vs. Moving vehicle & Parked-to-moving reclassification
 % Condition 3: Pedestrian Intent (Jaywalking vs Walking parallel)
 % Condition 4: Crowded Market Density (8+ Pedestrians)
@@ -118,17 +118,24 @@ for sIdx = 1:numScenarios
                 if abs(obsX - currX) < 15.0
                     st = 3; % STEER_AROUND_POLE (State 3)
                     targetV = 6.0;
-                    % Smooth lateral evasive steer curve
                     currY = (obs.Y * 0.7) * sin((currX - (obs.X - 15.0))/30.0 * pi);
                 end
             end
             
-            % Evaluate Surface Potholes (Slow-down-only, no swerving)
-            if strcmp(obs.Type, 'POTHOLE')
+            % Evaluate Depth-Aware Potholes (Shallow vs Deep vs Unknown)
+            if contains(obs.Type, 'POTHOLE')
                 if abs(obsX - currX) < 12.0
-                    st = 2; % SLOW_FOR_POTHOLE (State 2)
-                    targetV = egoParams.PotholeSpeed; % 2.78 m/s (10 km/h)
-                    currY = 0.0; % Keep lateral offset 0 (no swerving outside narrow lane)
+                    if strcmp(obs.Type, 'SHALLOW_POTHOLE') || (isfield(obs, 'Depth') && obs.Depth > 0 && obs.Depth < 0.05)
+                        % Shallow Pothole (< 5cm) -> Drive normally at 30km/h (State 1)
+                        st = 1; targetV = egoParams.NominalSpeed; currY = 0.0;
+                    elseif strcmp(obs.Type, 'UNKNOWN_POTHOLE') || (isfield(obs, 'Depth') && obs.Depth < 0)
+                        % Unknown Depth Pothole -> High Risk: Steer around avoid! (State 3)
+                        st = 3; targetV = 6.0;
+                        currY = (obs.Y * 0.6 + 0.6) * sin((currX - (obs.X - 12.0))/24.0 * pi);
+                    else
+                        % Deep Pothole (>= 10cm) -> Slow down to 10km/h (State 2)
+                        st = 2; targetV = egoParams.PotholeSpeed; currY = 0.0;
+                    end
                 end
             end
             

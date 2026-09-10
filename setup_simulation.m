@@ -1,6 +1,7 @@
 %% Setup Simulation Master Script - IndiaNAV (SIH 2026)
 % Initializes workspace parameters, vehicle geometry, controller gains, 
 % perception thresholds, safety monitor limits, Tri-Dataset AI domain priors,
+% depth-aware pothole classification rules (Shallow vs Deep vs Unknown),
 % multi-hazard spatio-temporal risk engine (DCPA/TCPA), and environment adapters.
 
 clc;
@@ -34,12 +35,19 @@ sensorParams.LidarPoints     = 1024; % Simulated points per scan frame
 sensorParams.PositionNoise   = 0.05; % Gaussian noise std on position (meters)
 sensorParams.VelocityNoise   = 0.10; % Gaussian noise std on velocity (m/s)
 
-%% 3. Tri-Dataset AI Perception (IDD + RAD + BDD100K Domain Priors)
+%% 3. Tri-Dataset AI Perception & Depth-Aware Pothole Rules
 perceptionParams = struct();
 perceptionParams.OnnxModelPath = fullfile('models', 'road_segmentation_net.onnx');
 perceptionParams.InputImageSize = [256, 256, 3];
 perceptionParams.ConfidenceThresh = 0.50; % Minimum detection confidence
 perceptionParams.Classes = {'FreeSpace', 'Pole', 'Pothole', 'ParkedCar', 'MovingCar', 'Pedestrian'};
+
+% Depth-Aware Pothole Classification Rules
+perceptionParams.PotholeRules = struct(...
+    'ShallowDepthThresh', 0.05, ... % < 5cm depth -> Shallow (Drive normally at 30km/h)
+    'DeepDepthThresh',    0.10, ... % >= 10cm depth -> Deep (Slow down to 10km/h)
+    'UnknownDepthAction', 'STEER_AROUND_AVOID' ... % Unknown depth -> High risk (Steer around)
+);
 
 % Domain Prior Integration Metadata
 perceptionParams.TriDatasetPriors = struct(...
@@ -105,6 +113,7 @@ envConfig.FrictionCoefficient   = 0.80; % Road adhesion mu
 
 fprintf('✓ Ego Params: Wheelbase = %.1fm, Width = %.1fm\n', egoParams.Wheelbase, egoParams.Width);
 fprintf('✓ Perception: ONNX Model = %s (IDD + RAD + BDD100K Tri-Dataset Priors)\n', perceptionParams.OnnxModelPath);
+fprintf('✓ Depth-Aware Potholes: Shallow (<5cm -> Drive Normally), Deep (>=10cm -> Slow Down), Unknown -> Steer Around\n');
 fprintf('✓ Multi-Hazard Risk Engine: Soft TTC = %.1fs, DCPA = %.2fm, TCPA = %.1fs, 2-Sigma Ellipse Active\n', ...
     safetyParams.SoftTTC_Thresh, safetyParams.DCPA_SoftThresh, safetyParams.TCPA_SoftThresh);
 fprintf('✓ Environment Plugin Active: %s\n', envConfig.ActiveEnvironment);
