@@ -38,8 +38,8 @@ This prototype provides an end-to-end **closed-loop Simulink architecture** feat
                           IDD+RAD+BDD100K)     (Parked/Moving)        (Walk/Jaywalk)       Planner
                                                                                                 |
                                                                                                 v
- [7] Vehicle Controller <------------------------------------------------------------------ [6] Decision Logic
-     (Stanley + Bicycle Model)                                                              (Stateflow Machine)
+ [7] Vehicle Controller <------------------------------------------------------------- [6] Decision Logic
+     (Stanley + Bicycle Model)                                                         (Stateflow Machine)
 ```
 
 | Subsystem Name | Key Inputs & Outputs | Core Functionality & Mathematical Logic |
